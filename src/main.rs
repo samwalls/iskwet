@@ -1,23 +1,63 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
-use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
+use clap::{App, Arg};
+use rocket::State;
+use rocket_contrib::json::Json;
 use rocket_contrib::uuid::Uuid;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::clone::Clone;
+use std::fs;
 
 #[macro_use]
 extern crate rocket;
 
-#[derive(Serialize, Deserialize)]
+type Id = String;
+
+type LanguageId = String;
+
+type Definition = String;
+
+#[derive(Serialize, Deserialize, Clone)]
 struct Word {
-    uuid: String,
-    definitions: HashMap<String, String>,
-    dependencies: Vec<String>,
-    dependers: Vec<String>,
+    uuid: Id,
+    definitions: HashMap<LanguageId, Vec<Definition>>,
+    synonyms: HashMap<LanguageId, Vec<Id>>,
+    antonyms: HashMap<LanguageId, Vec<Id>>,
+    dependencies: Vec<Id>,
+    dependers: Vec<Id>,
+    description: String,
 }
 
-#[derive(Serialize, Deserialize)]
+impl Word {
+    fn new() -> Word {
+        return Word {
+            uuid: "".to_string(),
+            definitions: HashMap::new(),
+            synonyms: HashMap::new(),
+            antonyms: HashMap::new(),
+            dependencies: vec!(),
+            dependers: vec!(),
+            description: "".to_string(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 struct Dictionary {
     words: Vec<Word>,
+}
+
+impl Dictionary {
+    fn new() -> Dictionary {
+        return Dictionary { words: vec![] };
+    }
+
+    fn from_file(path: &str) -> Dictionary {
+        let file_data = fs::read_to_string(path).expect("could not read file");
+        let dict: Dictionary = serde_json::from_str(&file_data).expect("could not parse JSON");
+        return dict;
+    }
 }
 
 #[get("/")]
@@ -26,15 +66,36 @@ fn index() -> &'static str {
 }
 
 #[get("/search/<uuid>", format = "json")]
-fn search_uuid(uuid: Uuid) -> String {
-    return "searching for '".to_string() + &uuid.to_string() + "'";
+fn search_uuid(dict: State<Dictionary>, uuid: String) -> Json<Word> {
+    let mut words = dict.words.clone().into_iter();
+    return match words.find(|word| word.uuid == uuid.to_string()) {
+        Some(word) => Json(word),
+        // TODO use results with errors
+        _ => Json(Word::new())
+    };
 }
 
 #[get("/search/<lang>/<word>", format = "json")]
-fn search_word(lang: String, word: String) -> String {
-    return "searching for '".to_string() + &word + "' in language: " + &lang;
+fn search_word(dict: State<Dictionary>, lang: String, word: String) -> Json<Vec<Word>> {
+    let words = dict.words.clone().into_iter();
+    return Json(words.filter(|word_data| word_data.definitions[&lang].contains(&word)).collect());
 }
 
 fn main() {
-    rocket::ignite().mount("/", routes![index, search_uuid, search_word]).launch();
+    let matches = App::new("iskwet")
+        .version("0.1.0")
+        .arg(
+            Arg::with_name("data")
+                .short('d')
+                .long("data")
+                .takes_value(true)
+                .required(true)
+                .about("a path to a .json file containing dictionary + thesaurus data"),
+        )
+        .get_matches();
+
+    rocket::ignite()
+        .manage(Dictionary::from_file(matches.value_of("data").unwrap()))
+        .mount("/", routes![index, search_uuid, search_word])
+        .launch();
 }

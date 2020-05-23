@@ -1,0 +1,45 @@
+{
+    "words": [
+        {
+            "uuid": "foo",
+            "definitions": {
+                "en": ["what", "query"],
+                "dk": ["wet"]
+            },
+            "synonyms": {},
+            "antonyms": {},
+            "dependencies": [],
+            "dependers": [],
+            "description": "'wet' wetem?"
+        },
+        {
+            "uuid": "bar",
+            "definitions": {
+                "en": ["position", "rank"],
+                "dk": ["öz"]
+            },
+            "synonyms": {
+                "en": ["baz"]
+            },
+            "antonyms": {},
+            "dependencies": [],
+            "dependers": [],
+            "description": "ordinal position"
+        },
+        {
+            "uuid": "baz",
+            "definitions": {
+                "en": ["position", "place"],
+                "dk": ["lok"]
+            },
+            "synonyms": {
+                "en": ["bar"]
+            },
+            "antonyms": {},
+            "dependencies": [],
+            "dependers": [],
+            "description": "spatial position"
+        }
+
+    ]
+}
